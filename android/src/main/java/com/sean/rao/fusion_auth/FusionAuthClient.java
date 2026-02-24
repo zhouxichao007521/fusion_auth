@@ -42,6 +42,8 @@ import com.sean.rao.fusion_auth.utils.TokenActionFactory;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -311,16 +313,7 @@ public class FusionAuthClient {
              */
             @Override
             public void onSMSCodeVerifyUICustomView(String templateId,String s,boolean isAutoInput, AlicomFusionVerifyCodeView alicomFusionVerifyCodeView) {
-                mActivity.get().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        AlicomFusionInputView inputView = alicomFusionVerifyCodeView.getInputView();
-                        RelativeLayout inputNumberRootRL = inputView.getInputNumberRootRL();
-                        View inflate = initTestView(0);
-                        inputNumberRootRL.addView(inflate);
-                    }
-                });
-
+                // Let SDK use its own template UI configured in the Aliyun console
             }
 
             /**
@@ -334,14 +327,7 @@ public class FusionAuthClient {
              */
             @Override
             public void onSMSSendVerifyUICustomView(String templateId, String nodeId, AlicomFusionUpSMSView view, String receivePhoneNumber, String verifyCode) {
-                mActivity.get().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        RelativeLayout rootRl = view.getRootRl();
-                        View inflate = initTestView(0);
-                        rootRl.addView(inflate);
-                    }
-                });
+                // Let SDK use its own template UI configured in the Aliyun console
             }
         };
     }
@@ -509,14 +495,36 @@ public class FusionAuthClient {
      */
     public void resultData(Object data){
         if (methodChannel != null) {
-            final Object safeData;
-            if (data instanceof AlicomFusionEvent) {
-                safeData = JSON.parseObject(JSON.toJSONString(data));
-            } else {
-                safeData = data;
-            }
+            final Object safeData = toFlutterSafe(data);
             mActivity.get().runOnUiThread(() -> methodChannel.invokeMethod(FusionConstant.FUSIONCHANEL, safeData));
         }
+    }
+
+    private Object toFlutterSafe(Object data) {
+        if (data == null) return null;
+        if (data instanceof String || data instanceof Number || data instanceof Boolean) return data;
+        if (data instanceof AlicomFusionEvent || data instanceof AlicomFusionEvent.Builder) {
+            String json = JSON.toJSONString(data);
+            JSONObject jo = JSON.parseObject(json);
+            return jsonObjectToHashMap(jo);
+        }
+        if (data instanceof JSONObject) {
+            return jsonObjectToHashMap((JSONObject) data);
+        }
+        return data;
+    }
+
+    private HashMap<String, Object> jsonObjectToHashMap(JSONObject jo) {
+        HashMap<String, Object> map = new HashMap<>();
+        for (Map.Entry<String, Object> entry : jo.entrySet()) {
+            Object val = entry.getValue();
+            if (val instanceof JSONObject) {
+                map.put(entry.getKey(), jsonObjectToHashMap((JSONObject) val));
+            } else {
+                map.put(entry.getKey(), val);
+            }
+        }
+        return map;
     }
 //
 //    private AlicomFusionAuthUICallBack uiCallBack;
