@@ -509,7 +509,13 @@ public class FusionAuthClient {
      */
     public void resultData(Object data){
         if (methodChannel != null) {
-            mActivity.get().runOnUiThread(() -> methodChannel.invokeMethod(FusionConstant.FUSIONCHANEL, data));
+            final Object safeData;
+            if (data instanceof AlicomFusionEvent) {
+                safeData = JSON.parseObject(JSON.toJSONString(data));
+            } else {
+                safeData = data;
+            }
+            mActivity.get().runOnUiThread(() -> methodChannel.invokeMethod(FusionConstant.FUSIONCHANEL, safeData));
         }
     }
 //
